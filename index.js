@@ -22,7 +22,7 @@ const NEZHA_SERVER = process.env.NEZHA_SERVER || '';
 const NEZHA_KEY = process.env.NEZHA_KEY || '';             
 const DOMAIN = process.env.DOMAIN || '';    
 const AUTO_ACCESS = process.env.AUTO_ACCESS || false;      
-const SUB_PATH = process.env.SUB_PATH || 'swds';           
+const SUB_PATH = process.env.SUB_PATH || '';           
 const NAME = process.env.NAME || 'Vercel';                       
 const PORT = process.env.PORT || 3000;                    
 
@@ -44,10 +44,7 @@ const WSPATH = process.env.WSPATH || UUID.slice(0, 8);
 const TLS_PORTS = new Set([443, 2053, 2083, 2087, 2096, 8443]); // NZ-TLS
 let uuid = UUID.replace(/-/g, ""), CurrentDomain = DOMAIN, Tls = 'tls', CurrentPort = 443, ISP = '';
 const DNS_SERVERS = ['8.8.4.4', '1.1.1.1'];
-const BLOCKED_DOMAINS = [
-  'speedtest.net', 'fast.com', 'speedtest.cn', 'speed.cloudflare.com', 'speedof.me',
-   'testmy.net', 'bandwidth.place', 'speed.io', 'librespeed.org', 'speedcheck.org'
-];
+const BLOCKED_DOMAINS = ['testmy.net', 'bandwidth.place', 'speed.io', 'librespeed.org', 'speedcheck.org'];
 
 //  TLS 检测
 function shouldUseTLS(server) {
