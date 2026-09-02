@@ -45,8 +45,7 @@ function shouldUseTLS(server) {
 }
 
 // block speedtest domains
-function isBlockedDomain(host) {
-}
+function isBlockedDomain(host) {}
 
 // 获取isp
 async function getisp() {
@@ -200,21 +199,13 @@ wss.on('connection', (ws, req) => {
   if (!url.startsWith(expectedPath)) { ws.close(); return; }
 
   ws.once('message', msg => {
-    if (msg.length > 17 && msg[0] === 0) {
-      const id = msg.slice(1, 17);
-      const isVless = id.every((v, i) => v == parseInt(uuid.substr(i * 2, 2), 16));
-      if (isVless) { if (!handleVlsConnection(ws, msg)) ws.close(); return; }
-    }
     if (msg.length >= 58) { if (handleTrojConnection(ws, msg)) return; }
-    if (msg.length > 0 && (msg[0] === 0x01 || msg[0] === 0x03 || msg[0] === 0x04)) {
-      if (handleSsConnection(ws, msg)) return;
-    }
     ws.close();
   }).on('error', () => { });
 });
 
 // start service
 httpServer.listen(PORT, () => {
-  startNezhaAgent().catch(err => console.error('error', err));
+//  startNezhaAgent().catch(err => console.error('error', err));
   console.log(`Server is running on ${PORT}`);
 });
