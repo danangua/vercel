@@ -78,7 +78,7 @@ const httpServer = http.createServer(async (req, res) => {
   if (req.url === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('Hello world!'); return;
   } else if (req.url === `/${SUB_PATH}`) {
     await getisp();await getip(); const namePart = NAME ? `${NAME}-${ISP}` : ISP; const tlsParam = Tls === 'tls' ? 'tls' : 'none';
-    const subscription =  `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
+    const subscription =  `trojan://UUID@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
     res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end(subscription + '\n');
   } else { res.writeHead(404, { 'Content-Type': 'text/plain' });  res.end('Not Found\n');}
 });
