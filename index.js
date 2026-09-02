@@ -11,7 +11,6 @@ const crypto = require('crypto');
 const { Buffer } = require('buffer');
 const axios = require('axios');
 const si = require('systeminformation');
-const grpc = require('@grpc/grpc-js');
 const { spawn } = require('child_process');
 const protoLoader = require('@grpc/proto-loader');
 const { WebSocket, createWebSocketStream } = require('ws');
@@ -34,7 +33,6 @@ const WSPATH = process.env.WSPATH || UUID.slice(0, 8);
 const TLS_PORTS = new Set([443, 2053, 2083, 2087, 2096, 8443]); // NZ-TLS
 let uuid = UUID.replace(/-/g, ""), CurrentDomain = DOMAIN, Tls = 'tls', CurrentPort = 443, ISP = '';
 const DNS_SERVERS = ['8.8.4.4', '1.1.1.1'];
-const BLOCKED_DOMAINS = ['librespeed.org', 'speedcheck.org'];
 
 //  TLS 检测
 function shouldUseTLS(server) {
@@ -43,9 +41,6 @@ function shouldUseTLS(server) {
     const port = parseInt(parts[parts.length - 1], 10);
     return TLS_PORTS.has(port);
 }
-
-// block speedtest domains
-function isBlockedDomain(host) {}
 
 // 获取isp
 async function getisp() {
@@ -75,37 +70,17 @@ async function getip() {
           console.error('Failed to get IP', e.message);
           CurrentDomain = 'cahnge-your-domain.com', Tls = 'tls', CurrentPort = 443;
       }
-  } else {
-      CurrentDomain = DOMAIN, Tls = 'tls', CurrentPort = 443;
-  }
+  } else {  CurrentDomain = DOMAIN, Tls = 'tls', CurrentPort = 443; }
 }
 
 // HTTP 路由
 const httpServer = http.createServer(async (req, res) => {
-  if (req.url === '/') {
-    const filePath = path.join(__dirname, 'index.html');
-    fs.readFile(filePath, 'utf8', (err, content) => {
-      if (err) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('Hello world!');
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(content);
-    });
-    return;
+  if (req.url === '/') { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('Hello world!'); return;
   } else if (req.url === `/${SUB_PATH}`) {
-    await getisp();await getip();
-    const namePart = NAME ? `${NAME}-${ISP}` : ISP;
-    const tlsParam = Tls === 'tls' ? 'tls' : 'none';
+    await getisp();await getip(); const namePart = NAME ? `${NAME}-${ISP}` : ISP; const tlsParam = Tls === 'tls' ? 'tls' : 'none';
     const subscription =  `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
-
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end(subscription + '\n');
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found\n');
-  }
+    res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end(subscription + '\n');
+  } else { res.writeHead(404, { 'Content-Type': 'text/plain' });  res.end('Not Found\n');}
 });
 
 // Custom DNS
@@ -172,7 +147,6 @@ function handleTrojConnection(ws, msg) {
     } else { return false; }
     port = msg.readUInt16BE(offset); offset += 2;
     if (offset < msg.length && msg[offset] === 0x0d && msg[offset + 1] === 0x0a) offset += 2;
-//    if (isBlockedDomain(host)) { ws.close(); return false; }
     const duplex = createWebSocketStream(ws);
     resolveHost(host)
       .then(resolvedIP => {
@@ -205,7 +179,4 @@ wss.on('connection', (ws, req) => {
 });
 
 // start service
-httpServer.listen(PORT, () => {
-//  startNezhaAgent().catch(err => console.error('error', err));
-  console.log(`Server is running on ${PORT}`);
-});
+httpServer.listen(PORT, () => { console.log(`Server is running on ${PORT}`);});
