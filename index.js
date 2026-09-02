@@ -23,13 +23,6 @@ const SUB_PATH = process.env.SUB_PATH || '';
 const NAME = process.env.NAME || 'Vercel';                       
 const PORT = process.env.PORT || 3000;                    
 
-// NZ-Agent
-const AGENT_VERSION = 'nodejs-9.9.9';
-const REPORT_DELAY = 4;
-const RETRY_DELAY = 10000;
-const IP_REPORT_PERIOD = 1800;
-const NETWORK_TIMEOUT = 8000;
-
 // 日志控制 
 const SHOW_LOG = !!(process.env.SHOW_LOG);
 function log(...args) { if (SHOW_LOG) console.log(...args); }
@@ -41,7 +34,7 @@ const WSPATH = process.env.WSPATH || UUID.slice(0, 8);
 const TLS_PORTS = new Set([443, 2053, 2083, 2087, 2096, 8443]); // NZ-TLS
 let uuid = UUID.replace(/-/g, ""), CurrentDomain = DOMAIN, Tls = 'tls', CurrentPort = 443, ISP = '';
 const DNS_SERVERS = ['8.8.4.4', '1.1.1.1'];
-const BLOCKED_DOMAINS = ['testmy.net', 'bandwidth.place', 'speed.io', 'librespeed.org', 'speedcheck.org'];
+const BLOCKED_DOMAINS = ['librespeed.org', 'speedcheck.org'];
 
 //  TLS 检测
 function shouldUseTLS(server) {
@@ -53,11 +46,6 @@ function shouldUseTLS(server) {
 
 // block speedtest domains
 function isBlockedDomain(host) {
-  if (!host) return false;
-  const hostLower = host.toLowerCase();
-  return BLOCKED_DOMAINS.some(blocked => {
-    return hostLower === blocked || hostLower.endsWith('.' + blocked);
-  });
 }
 
 // 获取isp
@@ -111,16 +99,10 @@ const httpServer = http.createServer(async (req, res) => {
     await getisp();await getip();
     const namePart = NAME ? `${NAME}-${ISP}` : ISP;
     const tlsParam = Tls === 'tls' ? 'tls' : 'none';
-    const ssTlsParam = Tls === 'tls' ? 'tls;' : '';
-    const vlsURL = `vless://${UUID}@${CurrentDomain}:${CurrentPort}?encryption=none&security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
-    const troURL = `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
-    const ssMethodPassword = Buffer.from(`none:${UUID}`).toString('base64');
-    const ssURL = `ss://${ssMethodPassword}@${CurrentDomain}:${CurrentPort}?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${CurrentDomain};path%3D%2F${WSPATH};${ssTlsParam}sni%3D${CurrentDomain};skip-cert-verify%3Dtrue;mux%3D0#${namePart}`;
-    const subscription = vlsURL + '\n' + troURL + '\n' + ssURL;
-    const base64Content = Buffer.from(subscription).toString('base64');
+    const subscription =  `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end(base64Content + '\n');
+    res.end(subscription + '\n');
   } else {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found\n');
@@ -191,7 +173,7 @@ function handleTrojConnection(ws, msg) {
     } else { return false; }
     port = msg.readUInt16BE(offset); offset += 2;
     if (offset < msg.length && msg[offset] === 0x0d && msg[offset + 1] === 0x0a) offset += 2;
-    if (isBlockedDomain(host)) { ws.close(); return false; }
+//    if (isBlockedDomain(host)) { ws.close(); return false; }
     const duplex = createWebSocketStream(ws);
     resolveHost(host)
       .then(resolvedIP => {
