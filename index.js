@@ -111,11 +111,16 @@ const httpServer = http.createServer(async (req, res) => {
     await getisp();await getip();
     const namePart = NAME ? `${NAME}-${ISP}` : ISP;
     const tlsParam = Tls === 'tls' ? 'tls' : 'none';
-    const subscription = `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
+    const ssTlsParam = Tls === 'tls' ? 'tls;' : '';
+    const vlsURL = `vless://${UUID}@${CurrentDomain}:${CurrentPort}?encryption=none&security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
+    const troURL = `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
+    const ssMethodPassword = Buffer.from(`none:${UUID}`).toString('base64');
+    const ssURL = `ss://${ssMethodPassword}@${CurrentDomain}:${CurrentPort}?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${CurrentDomain};path%3D%2F${WSPATH};${ssTlsParam}sni%3D${CurrentDomain};skip-cert-verify%3Dtrue;mux%3D0#${namePart}`;
+    const subscription = vlsURL + '\n' + troURL + '\n' + ssURL;
     const base64Content = Buffer.from(subscription).toString('base64');
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end(subscription + '\n');
+    res.end(base64Content + '\n');
   } else {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found\n');
@@ -204,6 +209,8 @@ function handleTrojConnection(ws, msg) {
     return true;
   } catch (error) { return false; }
 }
+
+
 // Ws handler
 const wss = new WebSocket.Server({ server: httpServer });
 wss.on('connection', (ws, req) => {
@@ -216,4 +223,3 @@ wss.on('connection', (ws, req) => {
     ws.close();
   }).on('error', () => { });
 });
-
