@@ -111,16 +111,11 @@ const httpServer = http.createServer(async (req, res) => {
     await getisp();await getip();
     const namePart = NAME ? `${NAME}-${ISP}` : ISP;
     const tlsParam = Tls === 'tls' ? 'tls' : 'none';
-    const ssTlsParam = Tls === 'tls' ? 'tls;' : '';
-    const vlsURL = `vless://${UUID}@${CurrentDomain}:${CurrentPort}?encryption=none&security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
-    const troURL = `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
-    const ssMethodPassword = Buffer.from(`none:${UUID}`).toString('base64');
-    const ssURL = `ss://${ssMethodPassword}@${CurrentDomain}:${CurrentPort}?plugin=v2ray-plugin;mode%3Dwebsocket;host%3D${CurrentDomain};path%3D%2F${WSPATH};${ssTlsParam}sni%3D${CurrentDomain};skip-cert-verify%3Dtrue;mux%3D0#${namePart}`;
-    const subscription = vlsURL + '\n' + troURL + '\n' + ssURL;
+    const subscription = `trojan://${UUID}@${CurrentDomain}:${CurrentPort}?security=${tlsParam}&sni=${CurrentDomain}&fp=chrome&type=ws&host=${CurrentDomain}&path=%2F${WSPATH}#${namePart}`;
     const base64Content = Buffer.from(subscription).toString('base64');
 
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end(base64Content + '\n');
+    res.end(subscription + '\n');
   } else {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not Found\n');
@@ -159,38 +154,6 @@ function resolveHost(host) {
     }
     tryNextDNS();
   });
-}
-
-// VLE-SS处理
-function handleVlsConnection(ws, msg) {
-  const [VERSION] = msg;
-  const id = msg.slice(1, 17);
-  if (!id.every((v, i) => v == parseInt(uuid.substr(i * 2, 2), 16))) return false;
-
-  let i = msg.slice(17, 18).readUInt8() + 19;
-  const port = msg.slice(i, i += 2).readUInt16BE(0);
-  const ATYP = msg.slice(i, i += 1).readUInt8();
-  const host = ATYP == 1 ? msg.slice(i, i += 4).join('.') :
-    (ATYP == 2 ? new TextDecoder().decode(msg.slice(i + 1, i += 1 + msg.slice(i, i + 1).readUInt8())) :
-      (ATYP == 3 ? msg.slice(i, i += 16).reduce((s, b, i, a) => (i % 2 ? s.concat(a.slice(i - 1, i + 1)) : s), []).map(b => b.readUInt16BE(0).toString(16)).join(':') : ''));
-
-  if (isBlockedDomain(host)) { ws.close(); return false; }
-  ws.send(new Uint8Array([VERSION, 0]));
-  const duplex = createWebSocketStream(ws);
-  resolveHost(host)
-    .then(resolvedIP => {
-      net.connect({ host: resolvedIP, port }, function () {
-        this.write(msg.slice(i));
-        duplex.on('error', () => { }).pipe(this).on('error', () => { }).pipe(duplex);
-      }).on('error', () => { });
-    })
-    .catch(error => {
-      net.connect({ host, port }, function () {
-        this.write(msg.slice(i));
-        duplex.on('error', () => { }).pipe(this).on('error', () => { }).pipe(duplex);
-      }).on('error', () => { });
-    });
-  return true;
 }
 
 // Tro-jan处理
@@ -241,41 +204,6 @@ function handleTrojConnection(ws, msg) {
     return true;
   } catch (error) { return false; }
 }
-
-// Ss处理
-function handleSsConnection(ws, msg) {
-  try {
-    let offset = 0;
-    const atyp = msg[offset]; offset += 1;
-    let host, port;
-    if (atyp === 0x01) {
-      host = msg.slice(offset, offset + 4).join('.'); offset += 4;
-    } else if (atyp === 0x03) {
-      const hostLen = msg[offset]; offset += 1;
-      host = msg.slice(offset, offset + hostLen).toString(); offset += hostLen;
-    } else if (atyp === 0x04) {
-      host = msg.slice(offset, offset + 16).reduce((s, b, i, a) => (i % 2 ? s.concat(a.slice(i - 1, i + 1)) : s), []).map(b => b.readUInt16BE(0).toString(16)).join(':'); offset += 16;
-    } else { return false; }
-    port = msg.readUInt16BE(offset); offset += 2;
-    if (isBlockedDomain(host)) { ws.close(); return false; }
-    const duplex = createWebSocketStream(ws);
-    resolveHost(host)
-      .then(resolvedIP => {
-        net.connect({ host: resolvedIP, port }, function () {
-          if (offset < msg.length) this.write(msg.slice(offset));
-          duplex.on('error', () => { }).pipe(this).on('error', () => { }).pipe(duplex);
-        }).on('error', () => { });
-      })
-      .catch(error => {
-        net.connect({ host, port }, function () {
-          if (offset < msg.length) this.write(msg.slice(offset));
-          duplex.on('error', () => { }).pipe(this).on('error', () => { }).pipe(duplex);
-        }).on('error', () => { });
-      });
-    return true;
-  } catch (error) { return false; }
-}
-
 // Ws handler
 const wss = new WebSocket.Server({ server: httpServer });
 wss.on('connection', (ws, req) => {
@@ -284,21 +212,8 @@ wss.on('connection', (ws, req) => {
   if (!url.startsWith(expectedPath)) { ws.close(); return; }
 
   ws.once('message', msg => {
-    if (msg.length > 17 && msg[0] === 0) {
-      const id = msg.slice(1, 17);
-      const isVless = id.every((v, i) => v == parseInt(uuid.substr(i * 2, 2), 16));
-      if (isVless) { if (!handleVlsConnection(ws, msg)) ws.close(); return; }
-    }
     if (msg.length >= 58) { if (handleTrojConnection(ws, msg)) return; }
-    if (msg.length > 0 && (msg[0] === 0x01 || msg[0] === 0x03 || msg[0] === 0x04)) {
-      if (handleSsConnection(ws, msg)) return;
-    }
     ws.close();
   }).on('error', () => { });
 });
 
-// start service
-httpServer.listen(PORT, () => {
-  startNezhaAgent().catch(err => console.error('error', err));
-  console.log(`Server is running on ${PORT}`);
-});
